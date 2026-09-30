@@ -1,0 +1,20 @@
+{
+  "name": "clinicsunrisetestversion",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Xuchie/clinicsunrisetestversion#readme",
+  "bugs": {
+    "url": "https://github.com/Xuchie/clinicsunrisetestversion/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Xuchie/clinicsunrisetestversion.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "./javascript-code/code.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
