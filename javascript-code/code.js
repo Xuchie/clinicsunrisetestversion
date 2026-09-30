@@ -184,11 +184,20 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ name, phone, date, reason }),
         });
 
-        if (!res.ok) throw new Error("Request failed");
+        if (!res.ok) {
+          const responseBody = await res.text();
+          console.error(
+            "Booking notification failed:",
+            res.status,
+            responseBody,
+          );
+          throw new Error(`Request failed (${res.status})`);
+        }
 
         formNote.textContent = `Thanks, ${name.split(" ")[0]}! We'll be in touch shortly to confirm your visit.`;
         bookingForm.reset();
       } catch (err) {
+        console.error("Booking submission error:", err);
         formNote.style.color = "#C4574A";
         formNote.textContent =
           "Something went wrong — please call us directly at (555) 123-4567.";
