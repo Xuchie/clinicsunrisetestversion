@@ -191,6 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
             res.status,
             responseBody,
           );
+          
           throw new Error(`Request failed (${res.status})`);
         }
 
