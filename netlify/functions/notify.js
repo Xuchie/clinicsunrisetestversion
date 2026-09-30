@@ -40,9 +40,14 @@ export const handler = async (event) => {
     );
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error("Telegram API error:", errText);
-      return { statusCode: 502, body: "Telegram rejected the message" };
+      const telegramError = await response.json().catch(() => null);
+      const errorMessage =
+        telegramError?.description || "Telegram rejected the message";
+      console.error("Telegram API error:", telegramError || errorMessage);
+      return {
+        statusCode: 502,
+        body: JSON.stringify({ error: errorMessage }),
+      };
     }
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
