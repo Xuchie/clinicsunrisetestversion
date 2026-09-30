@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
       formNote.textContent = "Sending your request...";
 
       try {
-        const res = await fetch("/.netlify/functions/notify.js", {
+        const res = await fetch("/.netlify/functions/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, phone, date, reason }),
