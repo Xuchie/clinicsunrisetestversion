@@ -281,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Booking submission error:", err);
         formNote.style.color = "#C4574A";
         formNote.textContent =
-          "Something went wrong — please call us directly at (555) 123-4567.";
+          "Something went wrong — please call us directly at 077 929 298.";
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
