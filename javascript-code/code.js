@@ -139,6 +139,49 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  /* ---------- Device & Rate Limit (15 min cooldown) ---------- */
+  const COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+  const STORAGE_KEY_LAST_SUBMIT = "clinic_last_booking_time";
+  const STORAGE_KEY_DEVICE_ID = "clinic_device_id";
+
+  function getDeviceId() {
+    let id = "";
+    try {
+      id = localStorage.getItem(STORAGE_KEY_DEVICE_ID);
+      if (!id) {
+        id =
+          "dev_" +
+          Math.random().toString(36).substring(2, 10) +
+          "_" +
+          Date.now().toString(36);
+        localStorage.setItem(STORAGE_KEY_DEVICE_ID, id);
+      }
+    } catch {
+      id = "dev_fallback_" + Date.now().toString(36);
+    }
+    return id;
+  }
+
+  function getRemainingCooldownMs() {
+    try {
+      const last = localStorage.getItem(STORAGE_KEY_LAST_SUBMIT);
+      if (!last) return 0;
+      const lastTime = parseInt(last, 10);
+      if (isNaN(lastTime)) return 0;
+      const elapsed = Date.now() - lastTime;
+      const remaining = COOLDOWN_MS - elapsed;
+      return remaining > 0 ? remaining : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function recordCooldown(timestamp = Date.now()) {
+    try {
+      localStorage.setItem(STORAGE_KEY_LAST_SUBMIT, String(timestamp));
+    } catch {}
+  }
+
   /* ---------- Booking form ---------- */
   const bookingForm = document.getElementById("bookingForm");
   const formNote = document.getElementById("formNote");
@@ -154,6 +197,16 @@ document.addEventListener("DOMContentLoaded", () => {
     bookingForm.addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      // 1. Device-level cooldown check
+      const remainingCooldownMs = getRemainingCooldownMs();
+      if (remainingCooldownMs > 0) {
+        const remainingMinutes = Math.ceil(remainingCooldownMs / 60000);
+        formNote.style.color = "#C4574A";
+        formNote.textContent = `You recently submitted an appointment request. Please wait ${remainingMinutes} minute(s) before requesting again from this device.`;
+        return;
+      }
+
+      // 2. Validate required fields
       let valid = true;
       bookingForm.querySelectorAll("[required]").forEach((field) => {
         field.classList.add("touched");
@@ -166,13 +219,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // NOTE: This is a front-end only demo. Wire this up to your backend,
-      // booking system (e.g. a scheduling API), or a service like Formspree
-      // to actually receive appointment requests.
       const name = document.getElementById("name").value.trim();
       const phone = document.getElementById("phone").value.trim();
       const date = document.getElementById("date").value;
       const reason = document.getElementById("reason").value;
+      const deviceId = getDeviceId();
+
+      const submitBtn = bookingForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = "0.7";
+        submitBtn.style.cursor = "not-allowed";
+      }
 
       formNote.style.color = "";
       formNote.textContent = "Sending your request...";
@@ -181,8 +239,28 @@ document.addEventListener("DOMContentLoaded", () => {
         const res = await fetch("/.netlify/functions/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, phone, date, reason }),
+          body: JSON.stringify({ name, phone, date, reason, deviceId }),
         });
+
+        // 429: Rate limited by server
+        if (res.status === 429) {
+          let errorMsg =
+            "Please wait 15 minutes before submitting another appointment request.";
+          try {
+            const errorData = await res.json();
+            if (errorData.error) errorMsg = errorData.error;
+            if (errorData.retryAfterMs) {
+              recordCooldown(Date.now() - (COOLDOWN_MS - errorData.retryAfterMs));
+            } else {
+              recordCooldown();
+            }
+          } catch {
+            recordCooldown();
+          }
+          formNote.style.color = "#C4574A";
+          formNote.textContent = errorMsg;
+          return;
+        }
 
         if (!res.ok) {
           const responseBody = await res.text();
@@ -191,9 +269,11 @@ document.addEventListener("DOMContentLoaded", () => {
             res.status,
             responseBody,
           );
-          
           throw new Error(`Request failed (${res.status})`);
         }
+
+        // Lock device for 15 minutes upon successful booking
+        recordCooldown(Date.now());
 
         formNote.textContent = `Thanks, ${name.split(" ")[0]}! We'll be in touch shortly to confirm your visit.`;
         bookingForm.reset();
@@ -202,6 +282,12 @@ document.addEventListener("DOMContentLoaded", () => {
         formNote.style.color = "#C4574A";
         formNote.textContent =
           "Something went wrong — please call us directly at (555) 123-4567.";
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = "";
+          submitBtn.style.cursor = "";
+        }
       }
     });
   }
